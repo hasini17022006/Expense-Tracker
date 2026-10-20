@@ -94,6 +94,19 @@ CREATE TABLE `users` (
   `password` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `monthly_budgets`
+--
+
+CREATE TABLE `monthly_budgets` (
+  `user_id` int(11) NOT NULL,
+  `monthly_limit` decimal(12,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `monthly_budgets_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Dumping data for table `users`
 --

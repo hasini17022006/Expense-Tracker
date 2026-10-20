@@ -1,5 +1,73 @@
 <?php
   include("session.php");
+  $budget_table_sql = "CREATE TABLE IF NOT EXISTS monthly_budgets (
+    user_id INT NOT NULL PRIMARY KEY,
+    monthly_limit DECIMAL(12, 2) NOT NULL DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+  if (!mysqli_query($con, $budget_table_sql)) {
+      die("Could not prepare the monthly budget table: " . mysqli_error($con));
+  }
+
+  if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["save_budget"])) {
+      $monthly_limit = filter_input(INPUT_POST, "monthly_limit", FILTER_VALIDATE_FLOAT);
+      if ($monthly_limit === false || $monthly_limit === null || $monthly_limit < 0) {
+          die("Please enter a valid monthly budget of zero or more.");
+      }
+
+      $save_budget = mysqli_prepare(
+          $con,
+          "INSERT INTO monthly_budgets (user_id, monthly_limit) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE monthly_limit = VALUES(monthly_limit)"
+      );
+      if (!$save_budget) {
+          die("Could not prepare the monthly budget update: " . mysqli_error($con));
+      }
+      mysqli_stmt_bind_param($save_budget, "id", $userid, $monthly_limit);
+      if (!mysqli_stmt_execute($save_budget)) {
+          die("Could not save the monthly budget: " . mysqli_stmt_error($save_budget));
+      }
+      mysqli_stmt_close($save_budget);
+      header("Location: index.php");
+      exit();
+  }
+
+  $budget_query = mysqli_prepare($con, "SELECT monthly_limit FROM monthly_budgets WHERE user_id = ?");
+  if (!$budget_query) {
+      die("Could not load the monthly budget: " . mysqli_error($con));
+  }
+  mysqli_stmt_bind_param($budget_query, "i", $userid);
+  if (!mysqli_stmt_execute($budget_query)) {
+      die("Could not load the monthly budget: " . mysqli_stmt_error($budget_query));
+  }
+  $budget_result = mysqli_stmt_get_result($budget_query);
+  $budget_row = mysqli_fetch_assoc($budget_result);
+  $monthly_limit = $budget_row ? (float) $budget_row["monthly_limit"] : 0;
+  mysqli_stmt_close($budget_query);
+
+  $month_start = date("Y-m-01");
+  $next_month_start = date("Y-m-01", strtotime("first day of next month"));
+  $spent_query = mysqli_prepare(
+      $con,
+      "SELECT COALESCE(SUM(expense), 0) AS monthly_spent
+       FROM expenses
+       WHERE user_id = ? AND expensedate >= ? AND expensedate < ?"
+  );
+  if (!$spent_query) {
+      die("Could not prepare the monthly spending query: " . mysqli_error($con));
+  }
+  mysqli_stmt_bind_param($spent_query, "iss", $userid, $month_start, $next_month_start);
+  if (!mysqli_stmt_execute($spent_query)) {
+      die("Could not load monthly spending: " . mysqli_stmt_error($spent_query));
+  }
+  $spent_result = mysqli_stmt_get_result($spent_query);
+  $monthly_spent = (float) mysqli_fetch_assoc($spent_result)["monthly_spent"];
+  mysqli_stmt_close($spent_query);
+  $remaining_budget = $monthly_limit - $monthly_spent;
+  $budget_progress = $monthly_limit > 0
+      ? min(100, ($monthly_spent / $monthly_limit) * 100)
+      : 0;
+
   $one_month_ago = date("Y-m-d", strtotime("-1 month"));
   $exp_category_dc = mysqli_query($con, "SELECT expensecategory FROM expenses WHERE user_id = '$userid' AND expensedate >= '$one_month_ago' GROUP BY expensecategory");
   $exp_amt_dc = mysqli_query($con, "SELECT SUM(expense) FROM expenses WHERE user_id = '$userid' AND expensedate >= '$one_month_ago' GROUP BY expensecategory");
@@ -154,6 +222,56 @@ $total_expense_amount = '0' + mysqli_fetch_assoc($total_expense)['SUM(expense)']
         
       </nav>
       <div class="container-fluid">
+        <div class="card mt-4">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Monthly Budget - <?php echo date("F Y"); ?></h5>
+          </div>
+          <div class="card-body">
+            <form method="post" action="index.php" class="form-inline mb-3">
+              <label for="monthly_limit" class="mr-2">Set your monthly spending limit (₹)</label>
+              <input
+                type="number"
+                class="form-control mr-2"
+                id="monthly_limit"
+                name="monthly_limit"
+                min="0"
+                step="0.01"
+                value="<?php echo htmlspecialchars(number_format($monthly_limit, 2, ".", ""), ENT_QUOTES, "UTF-8"); ?>"
+                required
+              >
+              <button type="submit" name="save_budget" class="btn btn-success">Save Budget</button>
+            </form>
+            <div class="row text-center">
+              <div class="col-md-4 mb-2">
+                <strong>Budget:</strong> ₹<?php echo number_format($monthly_limit, 2); ?>
+              </div>
+              <div class="col-md-4 mb-2">
+                <strong>Spent this month:</strong> ₹<?php echo number_format($monthly_spent, 2); ?>
+              </div>
+              <div class="col-md-4 mb-2">
+                <?php if ($monthly_limit <= 0) { ?>
+                  <strong>Remaining:</strong> Set a budget to track what you have left.
+                <?php } elseif ($remaining_budget >= 0) { ?>
+                  <strong>Remaining:</strong> ₹<?php echo number_format($remaining_budget, 2); ?>
+                <?php } else { ?>
+                  <strong>Over budget by:</strong> ₹<?php echo number_format(abs($remaining_budget), 2); ?>
+                <?php } ?>
+              </div>
+            </div>
+            <?php if ($monthly_limit > 0) { ?>
+              <div class="progress mt-2" style="height: 20px;">
+                <div
+                  class="progress-bar <?php echo $monthly_spent > $monthly_limit ? "bg-danger" : "bg-success"; ?>"
+                  role="progressbar"
+                  style="width: <?php echo $budget_progress; ?>%;"
+                  aria-valuenow="<?php echo $budget_progress; ?>"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                ><?php echo number_format($budget_progress, 0); ?>%</div>
+              </div>
+            <?php } ?>
+          </div>
+        </div>
         <h4 class="mt-4">Full-Expense Report</h4>
         <div class="row">
 

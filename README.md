@@ -2,6 +2,8 @@
 
 The Expense Tracking Database Management System `DBMS` project is a user-friendly application that allows an unlimited number of users to register, log in, and efficiently manage their personal expenses across diverse categories. Users have the flexibility to add, view, and delete expenses, providing a seamless experience for tracking their financial activities. The system also empowers users to manage expenses by sorting them based on months and categories, facilitating a clear overview of their spending habits. Moreover, the DBMS generates detailed expense reports on a daily, monthly, and yearly basis, assisting users in making informed financial decisions. This project simplifies expense tracking and enhances financial management for users of all backgrounds
 
+The dashboard also lets each user set a monthly spending limit and see expenses for the current calendar month, the remaining budget, and a progress bar. The budget is saved per user and the budget table is created automatically when the dashboard is opened.
+
 ## Installation
 
 1. **Download and Install XAMPP :**
@@ -57,6 +59,10 @@ The Expense Tracking Database Management System `DBMS` project is a user-friendl
    
 4. **Manage XAMPP Services:**
    - Use the XAMPP control panel to start/stop Apache, MySQL, and other services as needed.
+
+5. **Set a Monthly Budget:**
+   - Open the dashboard and enter a monthly spending limit in the budget panel.
+   - The dashboard displays the current month's spending and remaining amount, or how much the budget has been exceeded.
 
 ---
 
